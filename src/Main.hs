@@ -8,6 +8,7 @@ import Data.Monoid ((<>))
 import Development.Shake
 import Development.Shake.FilePath
 import Options.Applicative
+import System.Directory
 import System.Process
 
 import ShakeRules
@@ -18,8 +19,8 @@ data Snuffle = Snuffle
     , pathDeps  :: String -- ^ path to folder for dependent source
     }
 
-snuffle :: Parser Snuffle
-snuffle = Snuffle
+snuffle :: FilePath -> Parser Snuffle
+snuffle path = Snuffle
     <$> switch
         ( long "build-deps"
        <> short 'd'
@@ -35,12 +36,12 @@ snuffle = Snuffle
     <*> strOption
         ( long "src-path"
        <> short 'p'
-       <> value "~/.hs-snuffle/share/src"
+       <> value (path </> "share/src")
        <> metavar "PATH"
        <> help "where should snuffle store fetched source files"
         )
 
-opts = info (helper <*> snuffle) desc
+opts path = info (helper <*> (snuffle path)) desc
   where
     desc = fullDesc <> pDesc <> pHeader
     pDesc = progDesc $ "Fetch sources and generate tags for cabal sandboxed"
@@ -57,7 +58,9 @@ withSnuffle :: (Bool -> Bool -> FilePath -> IO ()) -- ^ run snuffle options
 withSnuffle f (Snuffle deps own path) = f deps own path
 
 main :: IO ()
-main = execParser opts >>= withSnuffle go
+main = do
+    appdir <- getAppUserDataDirectory "hs-snuffle"
+    execParser (opts appdir) >>= withSnuffle go
   where
     go deps own path = do
         when own $ shake shakeOptions buildThisTagRule
