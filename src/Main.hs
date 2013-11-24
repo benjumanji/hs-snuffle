@@ -11,12 +11,15 @@ import ShakeRules
 
 main :: IO ()
 main = do
-    home <- getHomeDirectory
     db <- getPackageDbPath
     packageList <-  maybe (return []) getPackageList db
     putStr $ intercalate "," packageList
+    let base = "/home/ben/src/haskell"
     shake shakeOptions $ do
-        mapM_ (buildTagRule "/home/ben/src/haskell") packageList
+        fetchArchiveRule base
+        buildTagRule base
+        buildThisTagRule
+        mapM_ (buildWants base) packageList
 
 getPackageDbPath :: IO (Maybe String)
 getPackageDbPath = getPath <$> io
@@ -32,7 +35,10 @@ getPackageList x = toList <$> io
     toList = init . tail . map stripStart . lines
 
 strip :: String -> String
-strip = stripStart . takeWhile (not isSpace)
+strip = stripStart . takeWhile (not . isSpace)
 
 stripStart :: String -> String
-stripStart = dropWhile (isSpace) 
+stripStart = dropWhile isSpace
+   
+
+
