@@ -3,12 +3,16 @@
 module ShakeRules
   where
 
+import Control.Monad (void)
 import Development.Shake
 import Development.Shake.FilePath
 import System.Process
 
-genTags :: String -> String
-genTags path = "export LC_ALL=C; cd " ++ path ++ "; find -type f | egrep \\.hs$\\|\\.lhs$ | xargs -Ii hothasktags i | sort > tags 2>/dev/null"
+genTagShell :: String -> String
+genTagShell path = "export LC_ALL=C; cd " ++ path ++ "; find -type f | egrep \\.hs$\\|\\.lhs$ | xargs -Ii hothasktags i | sort > tags 2>/dev/null"
+
+genTagFile :: String -> Action ()
+genTagFile path = void $ liftIO (system $ genTagShell path)
 
 buildWants :: String -> String -> Rules ()
 buildWants base x = want [base ++ "/" ++ x ++ "/tags"]
@@ -17,10 +21,8 @@ buildTagRule :: String -> Rules ()
 buildTagRule base = do
     (base ++ "/*/tags") *> \out -> do
         let packageDir = takeDirectory out
-            archive = packageDir 
         need [packageDir]
-        _ <- liftIO (system $ genTags packageDir)
-        return ()
+        genTagFile packageDir
 
 fetchArchiveRule :: String -> Rules ()
 fetchArchiveRule base = do
@@ -32,14 +34,12 @@ fetchArchiveRule base = do
         unit $ cmd (Cwd wd) "wget" [packageUrl]
         unit $ cmd (Cwd base) "tar -xzf" [archive]
         unit $ cmd (Cwd base) "rm" [archive]
-        return ()
 
 buildThisTagRule :: Rules ()
 buildThisTagRule = do
     want ["tags"]
     "tags" *> \out -> do
-        _ <- liftIO (system $ genTags ".")
-        return ()
+        genTagFile "."
 
 unit :: Action () -> Action ()
 unit x = x
